@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Tankkipeli Online</title>
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #1a1a1a;
+            font-family: 'Courier New', monospace;
+            color: #fff;
+            overflow: hidden;
+        }
+        
+        /* HERÄTYSVIESTI TYYLIT */
+        #wakeupScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            display: none;
+        }
+        
+        #wakeupScreen.show {
+            display: flex;
+        }
+        
+        .wakeup-spinner {
+            width: 80px;
+            height: 80px;
+            border: 8px solid rgba(255, 255, 255, 0.1);
+            border-top: 8px solid #4CAF50;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 30px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .wakeup-message {
+            font-size: 24px;
+            color: #4CAF50;
+            margin-bottom: 20px;
+            text-align: center;
+            padding: 0 20px;
+        }
+        
+        .wakeup-timer {
+            font-size: 48px;
+            color: #FFD700;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .wakeup-subtitle {
+            font-size: 16px;
+            color: #999;
+            text-align: center;
+            max-width: 400px;
+            line-height: 1.5;
+        }
+        
+        /* MENU TYYLIT */
+        .menu-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 1000;
+        }
+        
+        .menu-screen.show {
+            display: flex;
+        }
+        
+        .menu-title {
+            font-size: 48px;
+            margin-bottom: 30px;
+            color: #FFD700;
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+        }
+        
+        .menu-btn {
+            font-size: 20px;
+            padding: 15px 30px;
+            cursor: pointer;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+            margin: 10px;
+            transition: transform 0.2s;
+        }
+        
+        .menu-btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .menu-btn:active {
+            transform: scale(0.95);
+        }
+        
+        #qrcode {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        
+        #roomCode {
+            font-size: 48px;
+            font-weight: bold;
+            color: #4CAF50;
+            letter-spacing: 10px;
+            margin: 20px 0;
+        }
+        
+        #status {
+            color: #FFD700;
+            margin: 15px 0;
+            font-size: 18px;
+        }
+        
+        .code-input {
+            padding: 15px;
+            font-size: 32px;
+            width: 250px;
+            text-align: center;
+            border: 3px solid #4CAF50;
+            border-radius: 10px;
+            margin: 20px 0;
+            text-transform: uppercase;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+        
+        /* PELI TYYLIT */
+        #gameContainer {
+            display: none;
+            width: 100%;
+            height: 100vh;
+            flex-direction: column;
+        }
+        
+        #gameContainer.show {
+            display: flex;
+        }
+        
+        #info {
+            padding: 10px;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.8);
+        }
+        
+        #scores {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .player1-score { color: #00FF00; }
+        .player2-score { color: #FF5722; }
+        .player3-score { color: #2196F3; }
+        
+        #gameCanvas {
+            flex: 1;
+            background: #000;
+        }
+        
+        #message {
+            padding: 10px;
+            text-align: center;
+            font-size: 16px;
+            min-height: 25px;
+            color: #FFD700;
+            background: rgba(0, 0, 0, 0.8);
+        }
+        
+        /* OHJAIMET */
+        #controls {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.9);
+            gap: 10px;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            flex: 1;
+            align-items: center;
+        }
+        
+        .dpad-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 5px;
+            max-width: 200px;
+        }
+        
+        .control-btn {
+            width: 60px;
+            height: 60px;
+            border: 2px solid #fff;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+            font-size: 24px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: none;
+            cursor: pointer;
+        }
+        
+        .control-btn:active {
+            background: rgba(255, 255, 255, 0.5);
+        }
+        
+        .control-btn.empty {
+            visibility: hidden;
+        }
+        
+        .shoot-btn {
+            width: 60px;
+            height: 60px;
+            border: 3px solid #fff;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: bold;
+            touch-action: none;
+            cursor: pointer;
+            grid-column: 2;
+            grid-row: 2;
+        }
+        
+        .player1-controls .control-btn {
+            border-color: #00FF00;
+            background: rgba(0, 255, 0, 0.2);
+        }
+        
+        .player1-controls .shoot-btn {
+            border-color: #00FF00;
+            background: rgba(0, 255, 0, 0.3);
+            color: #00FF00;
+        }
+        
+        .player2-controls .control-btn {
+            border-color: #FF5722;
+            background: rgba(255, 87, 34, 0.2);
+        }
+        
+        .player2-controls .shoot-btn {
+            border-color: #FF5722;
+            background: rgba(255, 87, 34, 0.3);
+            color: #FF5722;
+        }
+        
+        .player3-controls .control-btn {
+            border-color: #2196F3;
+            background: rgba(33, 150, 243, 0.2);
+        }
+        
+        .player3-controls .shoot-btn {
+            border-color: #2196F3;
+            background: rgba(33, 150, 243, 0.3);
+            color: #2196F3;
+        }
+    </style>
+</head>
+<body>
+    <!-- HERÄTYSVIESTI -->
+    <div id="wakeupScreen">
+        <div class="wakeup-spinner"></div>
+        <div class="wakeup-message">Herätetään palvelinta...</div>
+        <div class="wakeup-timer" id="wakeupTimer">30</div>
+        <div class="wakeup-subtitle">
+            Palvelin oli nukkumassa säästääkseen resursseja.<br>
+            Tämä kestää noin 30 sekuntia ensimmäisellä kerralla.
+        </div>
+    </div>
+
+    <!-- PÄÄVALIKKO -->
+    <div id="mainMenu" class="menu-screen show">
+        <div class="menu-title">🎮 TANKKIPELI ONLINE</div>
+        <div id="status">Yhdistetään palvelimeen...</div>
+        <div id="mainButtons" style="display:none;">
+            <button class="menu-btn" style="background: #4CAF50;" onclick="showCreateMenu()">
+                📱 LUO PELI (QR-koodi)
+            </button>
+            <button class="menu-btn" style="background: #2196F3;" onclick="showJoinMenu()">
+                🔢 LIITY PELIIN
+            </button>
+        </div>
+    </div>
+
+    <!-- LUO PELI MENU -->
+    <div id="createMenu" class="menu-screen">
+        <div class="menu-title">LUO UUSI PELI</div>
+        <div id="playerSelect" style="display:flex; gap:20px; flex-wrap:wrap; justify-content:center;">
+            <button class="menu-btn" style="background: #4CAF50;" onclick="selectPlayers(2)">
+                2 PELAAJAA
+            </button>
+            <button class="menu-btn" style="background: #2196F3;" onclick="selectPlayers(3)">
+                3 PELAAJAA
+            </button>
+        </div>
+        <button class="menu-btn" style="background: #666; margin-top:30px;" onclick="backToMain()">
+            ← TAKAISIN
+        </button>
+    </div>
+
+    <!-- AMMUKSET VALINTA -->
+    <div id="bounceMenu" class="menu-screen">
+        <div class="menu-title">AMMUKSET</div>
+        <div style="display:flex; gap:20px; flex-wrap:wrap; justify-content:center;">
+            <button class="menu-btn" style="background: #FF9800;" onclick="createGame(true)">
+                KIMPOAVAT
+            </button>
+            <button class="menu-btn" style="background: #9C27B0;" onclick="createGame(false)">
+                EIVÄT KIMPOA
+            </button>
+        </div>
+        <button class="menu-btn" style="background: #666; margin-top:30px;" onclick="backToCreate()">
+            ← TAKAISIN
+        </button>
+    </div>
+
+    <!-- ODOTETAAN PELAAJIA -->
+    <div id="waitingRoom" class="menu-screen">
+        <div class="menu-title">ODOTA PELAAJIA</div>
+        <div id="roomCode"></div>
+        <div id="qrcode"></div>
+        <div id="waitingStatus" style="margin-top:20px; font-size:18px; color:#FFD700;"></div>
+        <p style="margin-top:20px; color:#999;">
+            Toiset pelaajat voivat skannata QR-koodin<br>
+            tai kirjoittaa koodin liity-valikossa
+        </p>
+    </div>
+
+    <!-- LIITY PELIIN -->
+    <div id="joinMenu" class="menu-screen">
+        <div class="menu-title">LIITY PELIIN</div>
+        <p style="margin-bottom:20px; color:#999;">Anna pelin nelikirjaiminen koodi:</p>
+        <input type="text" id="codeInput" class="code-input" placeholder="XXXX" maxlength="4">
+        <button class="menu-btn" style="background: #4CAF50;" onclick="joinGame()">
+            LIITY
+        </button>
+        <button class="menu-btn" style="background: #666; margin-top:20px;" onclick="backToMain()">
+            ← TAKAISIN
+        </button>
+    </div>
+
+    <!-- PELINÄKYMÄ -->
+    <div id="gameContainer">
+        <div id="info">
+            <div id="scores">
+                <div class="player1-score">P1: <span id="p1Score">0</span></div>
+                <div class="player2-score">P2: <span id="p2Score">0</span></div>
+                <div class="player3-score" id="p3ScoreContainer" style="display:none;">
+                    P3: <span id="p3Score">0</span>
+                </div>
+            </div>
+        </div>
+        
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="message"></div>
+        
+        <div id="controls" style="display:none;">
+            <!-- Ohjaimet generoidaan JavaScriptillä pelaajamäärän mukaan -->
+        </div>
+    </div>
+
+    <script>
+        // ═══════════════════════════════════════════════════════════
+        // PALVELINYHTEYS JA HERÄTYSVIESTI
+        // ═══════════════════════════════════════════════════════════
+        
+        const SERVER_URL = window.location.origin; // Automaattinen Renderissa
+        let socket = null;
+        let isConnected = false;
+        let wakeupStartTime = null;
+        
+        // Näytä herätysviesti
+        function showWakeupScreen() {
+            document.getElementById('wakeupScreen').classList.add('show');
+            wakeupStartTime = Date.now();
+            updateWakeupTimer();
+        }
+        
+        // Piilota herätysviesti
+        function hideWakeupScreen() {
+            document.getElementById('wakeupScreen').classList.remove('show');
+        }
+        
+        // Päivitä aikalaskuri
+        function updateWakeupTimer() {
+            if (!wakeupStartTime) return;
+            
+            const elapsed = Math.floor((Date.now() - wakeupStartTime) / 1000);
+            const remaining = Math.max(0, 30 - elapsed);
+            
+            document.getElementById('wakeupTimer').textContent = remaining;
+            
+            if (isConnected) {
+                hideWakeupScreen();
+            } else if (remaining > 0) {
+                requestAnimationFrame(updateWakeupTimer);
+            }
+        }
+        
+        // Yhdistä palvelimeen
+        function connectToServer() {
+            showWakeupScreen();
+            document.getElementById('status').textContent = 'Yhdistetään palvelimeen...';
+            
+            socket = io(SERVER_URL, {
+                transports: ['websocket', 'polling'],
+                timeout: 20000,
+                reconnection: true,
+                reconnectionDelay: 1000,
+                reconnectionAttempts: 10,
+                debug: true, // DEBUG MODE
+                forceNew: true // Ei välimuistia
+            });
+            
+            // DEBUGGAUS: Kuuntele KAIKKIA eventtejä
+            socket.onAny((eventName, ...args) => {
+                console.log(`📥 SOCKET EVENT: ${eventName}`, args);
+            });
+            
+            socket.on('connect', () => {
+                console.log('✅ Yhdistetty palvelimeen!');
+                console.log('🆔 Socket ID:', socket.id);
+                isConnected = true;
+                hideWakeupScreen();
+                document.getElementById('status').textContent = 'Yhdistetty! Valitse pelimuoto.';
+                document.getElementById('mainButtons').style.display = 'block';
+                
+                // Rekisteröi pelin tapahtumat vasta yhteyden jälkeen
+                console.log('📞 Kutsutaan setupGameEvents()...');
+                setupGameEvents();
+                console.log('✅ setupGameEvents() suoritettu!');
+            });
+            
+            socket.on('serverAwake', (data) => {
+                console.log('🟢 Palvelin on hereillä:', data);
+                isConnected = true;
+                hideWakeupScreen();
+            });
+            
+            socket.on('disconnect', () => {
+                console.log('❌ Yhteys katkesi');
+                isConnected = false;
+                document.getElementById('status').textContent = 'Yhteys katkesi. Yritetään uudelleen...';
+            });
+            
+            socket.on('connect_error', (error) => {
+                console.log('⚠️ Yhteysvirhe:', error);
+                document.getElementById('status').textContent = 'Herätetään palvelinta, odota...';
+            });
+            
+            socket.on('error', (data) => {
+                alert(data.message);
+            });
+        }
+        
+        // Käynnistä yhteys
+        window.addEventListener('load', () => {
+            // Tarkista URL-parametrit (QR-koodilla liittyminen)
+            const urlParams = new URLSearchParams(window.location.search);
+            const joinCode = urlParams.get('join');
+            
+            connectToServer();
+            
+            if (joinCode) {
+                // QR-koodilla skannattiin
+                setTimeout(() => {
+                    document.getElementById('codeInput').value = joinCode.toUpperCase();
+                    showJoinMenu();
+                    setTimeout(joinGame, 1000);
+                }, 2000);
+            }
+        });
+        
+        // Rekisteröi pelin tapahtumat
+        function setupGameEvents() {
+            console.log('🔧 Rekisteröidään game events...');
+            
+            // Kun pelaaja liittyy
+            socket.on('playerJoined', (data) => {
+                console.log('👥 EVENT: playerJoined', data);
+                updateWaitingStatus(data.totalPlayers, gameSettings.playerCount);
+            });
+            
+            // Kun kaikki paikalla
+            socket.on('allPlayersJoined', () => {
+                console.log('✅✅✅ EVENT VASTAANOTETTU: allPlayersJoined!');
+                console.log('📍 Päivitetään status...');
+                document.getElementById('waitingStatus').textContent = 'Kaikki paikalla! Aloitetaan peli...';
+                console.log('⏰ Odotetaan 2 sekuntia...');
+                setTimeout(() => {
+                    console.log('🎮 KUTSUTAAN startGame()!');
+                    startGame();
+                }, 2000);
+            });
+            
+            console.log('✅ allPlayersJoined event rekisteröity!');
+            
+            // Pelin luonti onnistui
+            socket.on('gameCreated', (data) => {
+                currentRoomCode = data.roomCode;
+                myPlayerNumber = data.playerNumber;
+                
+                console.log('✅ Peli luotu:', currentRoomCode);
+                
+                // Näytä odotusruutu
+                hideAllMenus();
+                document.getElementById('waitingRoom').classList.add('show');
+                document.getElementById('roomCode').textContent = currentRoomCode;
+                
+                // Luo QR-koodi
+                const qrContainer = document.getElementById('qrcode');
+                qrContainer.innerHTML = '';
+                const url = window.location.origin + window.location.pathname + '?join=' + currentRoomCode;
+                new QRCode(qrContainer, {
+                    text: url,
+                    width: 200,
+                    height: 200
+                });
+                
+                updateWaitingStatus(1, gameSettings.playerCount);
+            });
+            
+            // Peliin liittyminen onnistui
+            socket.on('gameJoined', (data) => {
+                myPlayerNumber = data.playerNumber;
+                gameSettings = {
+                    playerCount: data.gameState.playerCount,
+                    bounceEnabled: data.gameState.bounceEnabled
+                };
+                
+                console.log('✅ Liitytty peliin. Pelaaja #', myPlayerNumber);
+                
+                // Näytä odotusruutu
+                hideAllMenus();
+                document.getElementById('waitingRoom').classList.add('show');
+                document.getElementById('roomCode').textContent = currentRoomCode;
+                document.getElementById('qrcode').style.display = 'none';
+                
+                updateWaitingStatus(myPlayerNumber, gameSettings.playerCount);
+            });
+            
+            // Pelaaja poistui
+            socket.on('playerLeft', (data) => {
+                document.getElementById('message').textContent = `Pelaaja ${data.playerNumber} poistui pelistä`;
+            });
+        }
+        
+        // ═══════════════════════════════════════════════════════════
+        // VALIKKOLOGIIKKA
+        // ═══════════════════════════════════════════════════════════
+        
+        function hideAllMenus() {
+            document.querySelectorAll('.menu-screen').forEach(menu => {
+                menu.classList.remove('show');
+            });
+        }
+        
+        function showMainMenu() {
+            hideAllMenus();
+            document.getElementById('mainMenu').classList.add('show');
+        }
+        
+        function showCreateMenu() {
+            hideAllMenus();
+            document.getElementById('createMenu').classList.add('show');
+        }
+        
+        function showJoinMenu() {
+            hideAllMenus();
+            document.getElementById('joinMenu').classList.add('show');
+        }
+        
+        function backToMain() {
+            showMainMenu();
+        }
+        
+        function backToCreate() {
+            hideAllMenus();
+            document.getElementById('createMenu').classList.add('show');
+        }
+        
+        // ═══════════════════════════════════════════════════════════
+        // PELIN LUONTI JA LIITTYMINEN
+        // ═══════════════════════════════════════════════════════════
+        
+        let selectedPlayerCount = 2;
+        let myPlayerNumber = 0;
+        let currentRoomCode = '';
+        let isHost = false;
+        let gameSettings = {
+            playerCount: 2,
+            bounceEnabled: false
+        };
+        
+        function selectPlayers(count) {
+            selectedPlayerCount = count;
+            gameSettings.playerCount = count;
+            hideAllMenus();
+            document.getElementById('bounceMenu').classList.add('show');
+        }
+        
+        function createGame(bounceEnabled) {
+            gameSettings.bounceEnabled = bounceEnabled;
+            isHost = true;
+            
+            console.log('🎮 Luodaan peli:', gameSettings);
+            socket.emit('createGame', gameSettings);
+        }
+        
+        function joinGame() {
+            const code = document.getElementById('codeInput').value.trim().toUpperCase();
+            
+            if (code.length !== 4) {
+                alert('Anna 4-merkkinen koodi!');
+                return;
+            }
+            
+            isHost = false;
+            currentRoomCode = code;
+            
+            console.log('🔌 Liitytään peliin:', code);
+            socket.emit('joinGame', code);
+        }
+        
+        function updateWaitingStatus(current, total) {
+            const status = document.getElementById('waitingStatus');
+            status.textContent = `Pelaajia paikalla: ${current}/${total}`;
+        }
+        
+        // ═══════════════════════════════════════════════════════════
+        // PELIN ALUSTUS
+        // ═══════════════════════════════════════════════════════════
+        
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        function startGame() {
+            hideAllMenus();
+            document.getElementById('gameContainer').classList.add('show');
+            
+            // Aseta canvasin koko
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            // Näytä/piilota 3. pelaajan pisteet
+            if (gameSettings.playerCount === 3) {
+                document.getElementById('p3ScoreContainer').style.display = 'block';
+            }
+            
+            // Luo ohjaimet
+            createControls();
+            
+            // Alusta pelitila
+            initGame();
+            
+            // Aloita peli
+            console.log('🎮 Peli alkaa! Pelaaja #' + myPlayerNumber);
+            document.getElementById('message').textContent = 'Peli alkaa!';
+        }
+        
+        function resizeCanvas() {
+            const container = document.getElementById('gameContainer');
+            const info = document.getElementById('info');
+            const message = document.getElementById('message');
+            const controls = document.getElementById('controls');
+            
+            const availableHeight = window.innerHeight - 
+                info.offsetHeight - message.offsetHeight - 
+                (controls.style.display === 'none' ? 0 : controls.offsetHeight);
+            
+            canvas.width = window.innerWidth;
+            canvas.height = availableHeight;
+        }
+        
+        console.log('🎮 Tankkipeli Online pääohjelma ladattu!');
+    </script>
+    <script src="game.js"></script>
+</body>
+</html>
