@@ -474,9 +474,6 @@
                 hideWakeupScreen();
                 document.getElementById('status').textContent = 'Yhdistetty! Valitse pelimuoto.';
                 document.getElementById('mainButtons').style.display = 'block';
-                
-                // Rekisteröi pelin tapahtumat vasta yhteyden jälkeen
-                setupGameEvents();
             });
             
             socket.on('serverAwake', (data) => {
@@ -519,32 +516,68 @@
             }
         });
         
-        // Rekisteröi pelin tapahtumat
-        function setupGameEvents() {
-            console.log('🔧 Rekisteröidään game events...');
-            
-            // Kun pelaaja liittyy
-            socket.on('playerJoined', (data) => {
-                console.log('👥 EVENT: playerJoined', data);
-                updateWaitingStatus(data.totalPlayers, gameSettings.playerCount);
+        // ═══════════════════════════════════════════════════════════
+        // VALIKKOLOGIIKKA
+        // ═══════════════════════════════════════════════════════════
+        
+        function hideAllMenus() {
+            document.querySelectorAll('.menu-screen').forEach(menu => {
+                menu.classList.remove('show');
             });
+        }
+        
+        function showMainMenu() {
+            hideAllMenus();
+            document.getElementById('mainMenu').classList.add('show');
+        }
+        
+        function showCreateMenu() {
+            hideAllMenus();
+            document.getElementById('createMenu').classList.add('show');
+        }
+        
+        function showJoinMenu() {
+            hideAllMenus();
+            document.getElementById('joinMenu').classList.add('show');
+        }
+        
+        function backToMain() {
+            showMainMenu();
+        }
+        
+        function backToCreate() {
+            hideAllMenus();
+            document.getElementById('createMenu').classList.add('show');
+        }
+        
+        // ═══════════════════════════════════════════════════════════
+        // PELIN LUONTI JA LIITTYMINEN
+        // ═══════════════════════════════════════════════════════════
+        
+        let selectedPlayerCount = 2;
+        let myPlayerNumber = 0;
+        let currentRoomCode = '';
+        let isHost = false;
+        let gameSettings = {
+            playerCount: 2,
+            bounceEnabled: false
+        };
+        
+        function selectPlayers(count) {
+            selectedPlayerCount = count;
+            gameSettings.playerCount = count;
+            hideAllMenus();
+            document.getElementById('bounceMenu').classList.add('show');
+        }
+        
+        function createGame(bounceEnabled) {
+            gameSettings.bounceEnabled = bounceEnabled;
+            isHost = true;
             
-            // Kun kaikki paikalla
-            socket.on('allPlayersJoined', () => {
-                console.log('✅✅✅ EVENT VASTAANOTETTU: allPlayersJoined!');
-                console.log('📍 Päivitetään status...');
-                document.getElementById('waitingStatus').textContent = 'Kaikki paikalla! Aloitetaan peli...';
-                console.log('⏰ Odotetaan 2 sekuntia...');
-                setTimeout(() => {
-                    console.log('🎮 KUTSUTAAN startGame()!');
-                    startGame();
-                }, 2000);
-            });
+            console.log('🎮 Luodaan peli:', gameSettings);
+            socket.emit('createGame', gameSettings);
             
-            console.log('✅ allPlayersJoined event rekisteröity!');
-            
-            // Pelin luonti onnistui
-            socket.on('gameCreated', (data) => {
+            socket.once('gameCreated', (data) => {
                 currentRoomCode = data.roomCode;
                 myPlayerNumber = data.playerNumber;
                 
@@ -567,9 +600,23 @@
                 
                 updateWaitingStatus(1, gameSettings.playerCount);
             });
+        }
+        
+        function joinGame() {
+            const code = document.getElementById('codeInput').value.trim().toUpperCase();
             
-            // Peliin liittyminen onnistui
-            socket.on('gameJoined', (data) => {
+            if (code.length !== 4) {
+                alert('Anna 4-merkkinen koodi!');
+                return;
+            }
+            
+            isHost = false;
+            currentRoomCode = code;
+            
+            console.log('🔌 Liitytään peliin:', code);
+            socket.emit('joinGame', code);
+            
+            socket.once('gameJoined', (data) => {
                 myPlayerNumber = data.playerNumber;
                 gameSettings = {
                     playerCount: data.gameState.playerCount,
@@ -586,16 +633,25 @@
                 
                 updateWaitingStatus(myPlayerNumber, gameSettings.playerCount);
             });
-            
-            // Pelaaja poistui
-            socket.on('playerLeft', (data) => {
-                document.getElementById('message').textContent = `Pelaaja ${data.playerNumber} poistui pelistä`;
-            });
         }
         
-        // ═══════════════════════════════════════════════════════════
-        // VALIKKOLOGIIKKA
-        // ═══════════════════════════════════════════════════════════
+        function updateWaitingStatus(current, total) {
+            const status = document.getElementById('waitingStatus');
+            status.textContent = `Pelaajia paikalla: ${current}/${total}`;
+        }
+        
+        // Kun pelaaja liittyy
+        socket && socket.on('playerJoined', (data) => {
+            console.log('👥 Pelaaja liittyi:', data);
+            updateWaitingStatus(data.totalPlayers, gameSettings.playerCount);
+        });
+        
+        // Kun kaikki paikalla
+        socket && socket.on('allPlayersJoined', () => {
+            console.log('✅ Kaikki pelaajat paikalla! Aloitetaan...');
+            document.getElementById('waitingStatus').textContent = 'Kaikki paikalla! Aloitetaan peli...';
+            setTimeout(startGame, 2000);
+        });
         
         // ═══════════════════════════════════════════════════════════
         // PELIN ALUSTUS
