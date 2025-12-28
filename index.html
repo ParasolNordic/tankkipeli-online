@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="fi">
 <head>
@@ -710,6 +711,14 @@
             
             // Alusta pelitila
             initGame();
+            
+            // Rekisteröi pelin socket-eventit
+            console.log('📡 Rekisteröidään pelin socket-eventit...');
+            if (typeof setupGameSocketEvents === 'function') {
+                setupGameSocketEvents();
+            } else {
+                console.error('❌ setupGameSocketEvents ei ole määritelty!');
+            }
             
             // Aloita peli
             console.log('🎮 Peli alkaa! Pelaaja #' + myPlayerNumber);
