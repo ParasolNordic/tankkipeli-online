@@ -465,15 +465,28 @@
                 timeout: 20000,
                 reconnection: true,
                 reconnectionDelay: 1000,
-                reconnectionAttempts: 10
+                reconnectionAttempts: 10,
+                debug: true, // DEBUG MODE
+                forceNew: true // Ei välimuistia
+            });
+            
+            // DEBUGGAUS: Kuuntele KAIKKIA eventtejä
+            socket.onAny((eventName, ...args) => {
+                console.log(`📥 SOCKET EVENT: ${eventName}`, args);
             });
             
             socket.on('connect', () => {
                 console.log('✅ Yhdistetty palvelimeen!');
+                console.log('🆔 Socket ID:', socket.id);
                 isConnected = true;
                 hideWakeupScreen();
                 document.getElementById('status').textContent = 'Yhdistetty! Valitse pelimuoto.';
                 document.getElementById('mainButtons').style.display = 'block';
+                
+                // Rekisteröi pelin tapahtumat vasta yhteyden jälkeen
+                console.log('📞 Kutsutaan setupGameEvents()...');
+                setupGameEvents();
+                console.log('✅ setupGameEvents() suoritettu!');
             });
             
             socket.on('serverAwake', (data) => {
@@ -515,6 +528,80 @@
                 }, 2000);
             }
         });
+        
+        // Rekisteröi pelin tapahtumat
+        function setupGameEvents() {
+            console.log('🔧 Rekisteröidään game events...');
+            
+            // Kun pelaaja liittyy
+            socket.on('playerJoined', (data) => {
+                console.log('👥 EVENT: playerJoined', data);
+                updateWaitingStatus(data.totalPlayers, gameSettings.playerCount);
+            });
+            
+            // Kun kaikki paikalla
+            socket.on('allPlayersJoined', () => {
+                console.log('✅✅✅ EVENT VASTAANOTETTU: allPlayersJoined!');
+                console.log('📍 Päivitetään status...');
+                document.getElementById('waitingStatus').textContent = 'Kaikki paikalla! Aloitetaan peli...';
+                console.log('⏰ Odotetaan 2 sekuntia...');
+                setTimeout(() => {
+                    console.log('🎮 KUTSUTAAN startGame()!');
+                    startGame();
+                }, 2000);
+            });
+            
+            console.log('✅ allPlayersJoined event rekisteröity!');
+            
+            // Pelin luonti onnistui
+            socket.on('gameCreated', (data) => {
+                currentRoomCode = data.roomCode;
+                myPlayerNumber = data.playerNumber;
+                
+                console.log('✅ Peli luotu:', currentRoomCode);
+                
+                // Näytä odotusruutu
+                hideAllMenus();
+                document.getElementById('waitingRoom').classList.add('show');
+                document.getElementById('roomCode').textContent = currentRoomCode;
+                
+                // Luo QR-koodi
+                const qrContainer = document.getElementById('qrcode');
+                qrContainer.innerHTML = '';
+                const url = window.location.origin + window.location.pathname + '?join=' + currentRoomCode;
+                new QRCode(qrContainer, {
+                    text: url,
+                    width: 200,
+                    height: 200
+                });
+                
+                updateWaitingStatus(1, gameSettings.playerCount);
+            });
+            
+            // Peliin liittyminen onnistui
+            socket.on('gameJoined', (data) => {
+                myPlayerNumber = data.playerNumber;
+                gameSettings = {
+                    playerCount: data.gameState.playerCount,
+                    bounceEnabled: data.gameState.bounceEnabled
+                };
+                
+                console.log('✅ Liitytty peliin. Pelaaja #', myPlayerNumber);
+                
+                // Näytä odotusruutu
+                hideAllMenus();
+                document.getElementById('waitingRoom').classList.add('show');
+                document.getElementById('roomCode').textContent = currentRoomCode;
+                document.getElementById('qrcode').style.display = 'none';
+                
+                updateWaitingStatus(myPlayerNumber, gameSettings.playerCount);
+            });
+            
+            // Pelaaja poistui
+            socket.on('playerLeft', (data) => {
+                document.getElementById('message').textContent = `Pelaaja ${data.playerNumber} poistui pelistä`;
+            });
+        }
         
         // ═══════════════════════════════════════════════════════════
         // VALIKKOLOGIIKKA
@@ -576,30 +663,6 @@
             
             console.log('🎮 Luodaan peli:', gameSettings);
             socket.emit('createGame', gameSettings);
-            
-            socket.once('gameCreated', (data) => {
-                currentRoomCode = data.roomCode;
-                myPlayerNumber = data.playerNumber;
-                
-                console.log('✅ Peli luotu:', currentRoomCode);
-                
-                // Näytä odotusruutu
-                hideAllMenus();
-                document.getElementById('waitingRoom').classList.add('show');
-                document.getElementById('roomCode').textContent = currentRoomCode;
-                
-                // Luo QR-koodi
-                const qrContainer = document.getElementById('qrcode');
-                qrContainer.innerHTML = '';
-                const url = window.location.origin + window.location.pathname + '?join=' + currentRoomCode;
-                new QRCode(qrContainer, {
-                    text: url,
-                    width: 200,
-                    height: 200
-                });
-                
-                updateWaitingStatus(1, gameSettings.playerCount);
-            });
         }
         
         function joinGame() {
@@ -615,43 +678,12 @@
             
             console.log('🔌 Liitytään peliin:', code);
             socket.emit('joinGame', code);
-            
-            socket.once('gameJoined', (data) => {
-                myPlayerNumber = data.playerNumber;
-                gameSettings = {
-                    playerCount: data.gameState.playerCount,
-                    bounceEnabled: data.gameState.bounceEnabled
-                };
-                
-                console.log('✅ Liitytty peliin. Pelaaja #', myPlayerNumber);
-                
-                // Näytä odotusruutu
-                hideAllMenus();
-                document.getElementById('waitingRoom').classList.add('show');
-                document.getElementById('roomCode').textContent = currentRoomCode;
-                document.getElementById('qrcode').style.display = 'none';
-                
-                updateWaitingStatus(myPlayerNumber, gameSettings.playerCount);
-            });
         }
         
         function updateWaitingStatus(current, total) {
             const status = document.getElementById('waitingStatus');
             status.textContent = `Pelaajia paikalla: ${current}/${total}`;
         }
-        
-        // Kun pelaaja liittyy
-        socket && socket.on('playerJoined', (data) => {
-            console.log('👥 Pelaaja liittyi:', data);
-            updateWaitingStatus(data.totalPlayers, gameSettings.playerCount);
-        });
-        
-        // Kun kaikki paikalla
-        socket && socket.on('allPlayersJoined', () => {
-            console.log('✅ Kaikki pelaajat paikalla! Aloitetaan...');
-            document.getElementById('waitingStatus').textContent = 'Kaikki paikalla! Aloitetaan peli...';
-            setTimeout(startGame, 2000);
-        });
         
         // ═══════════════════════════════════════════════════════════
         // PELIN ALUSTUS
