@@ -345,12 +345,17 @@ class Explosion {
 
 // Alusta peli
 function initGame() {
-    // Luo tankit
+    // Generoi seinät ENSIN (vain host)
+    if (isHost) {
+        generateWalls();
+    }
+    
+    // Luo tankit TURVALLISIIN paikkoihin (reunoilla, kaukana keskustasta)
     const colors = ['#00FF00', '#FF5722', '#2196F3'];
     const positions = [
-        { x: canvas.width * 0.1, y: canvas.height * 0.5 },
-        { x: canvas.width * 0.9, y: canvas.height * 0.5 },
-        { x: canvas.width * 0.5, y: canvas.height * 0.1 }
+        { x: 100, y: canvas.height / 2 },  // Vasen reuna
+        { x: canvas.width - 100, y: canvas.height / 2 },  // Oikea reuna
+        { x: canvas.width / 2, y: 100 }  // Yläreuna
     ];
     
     gameState.tanks = [];
@@ -368,11 +373,6 @@ function initGame() {
         }
     }
     
-    // Generoi seinät (vain host)
-    if (isHost) {
-        generateWalls();
-    }
-    
     // Aloita game loop
     gameLoop();
 }
@@ -382,11 +382,12 @@ function generateWalls() {
     gameState.walls = [];
     const wallCount = 8;
     
+    // Suurempi turvavyöhyke tankeille (300x300px)
     const safeZones = gameState.tanks.map(tank => ({
-        x: tank.x - 100,
-        y: tank.y - 100,
-        width: 200,
-        height: 200
+        x: tank.x - 150,
+        y: tank.y - 150,
+        width: 300,
+        height: 300
     }));
     
     for (let i = 0; i < wallCount; i++) {
@@ -476,40 +477,47 @@ function drawBackground() {
 }
 
 // Pelin päivitys
+let gameOverHandled = false;
+
 function checkGameOver() {
     const aliveTanks = gameState.tanks.filter(t => t.alive);
     
-    if (aliveTanks.length === 1) {
+    if (aliveTanks.length === 1 && !gameOverHandled) {
+        gameOverHandled = true;
         gameState.gameOver = true;
         const winner = aliveTanks[0].playerNumber;
         
         document.getElementById('message').textContent = `🎉 Pelaaja ${winner} voitti!`;
         
-        // Lähetä tulos palvelimelle
-        socket.emit('roundEnd', { winner });
+        // Lähetä tulos palvelimelle (vain kerran!)
+        if (isHost) {
+            socket.emit('roundEnd', { winner });
+        }
         
-        // Odota ja aloita uusi kierros
+        // Odota ja aloita uusi kierros (vain kerran!)
         setTimeout(() => {
-            if (confirm('Uusi kierros?')) {
+            const wantNewRound = confirm('Uusi kierros?');
+            if (wantNewRound) {
                 resetRound();
             }
-        }, 3000);
+        }, 2000);
     }
 }
 
 // Nollaa kierros
 function resetRound() {
+    gameOverHandled = false;
     gameState.gameOver = false;
     gameState.bullets = [];
     gameState.explosions = [];
     
     gameState.tanks.forEach(tank => tank.reset());
     
-    // Palauta alkuasennot
+    // Palauta alkuasennot (TURVALLISIIN paikkoihin)
     const positions = [
-        { x: canvas.width * 0.1, y: canvas.height * 0.5 },
-        { x: canvas.width * 0.9, y: canvas.height * 0.5 },
-        { x: canvas.width * 0.5, y: canvas.height * 0.1 }
+        { x: 100, y: canvas.height / 2 },
+        { x: canvas.width - 100, y: canvas.height / 2 },
+        { x: canvas.width / 2, y: 100 }
     ];
     
     gameState.tanks.forEach((tank, i) => {
@@ -574,7 +582,7 @@ function createControls() {
                 justify-content: space-between;
                 align-items: center;
                 padding: 10px 20px;
-                background: rgba(0, 0, 0, 0.9);
+                background: transparent;
                 gap: 20px;
                 height: 140px;
                 z-index: 1000;
