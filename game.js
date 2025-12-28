@@ -679,7 +679,13 @@ function handleControlRelease(e) {
         keys[key] = false;
     }
 }
-
+function handleShoot(e) {
+    e.preventDefault();
+    if (myTank && myTank.alive) {
+        console.log('🔫 Ammutaan!');
+        myTank.shoot();
+    }
+}
 // Näppäimistökontrollit
 document.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
