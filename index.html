@@ -577,7 +577,7 @@
             console.log('🎮 Luodaan peli:', gameSettings);
             socket.emit('createGame', gameSettings);
             
-            socket.once('gameCreated', (data) => {
+            socket.on('gameCreated', (data) => {
                 currentRoomCode = data.roomCode;
                 myPlayerNumber = data.playerNumber;
                 
@@ -616,7 +616,7 @@
             console.log('🔌 Liitytään peliin:', code);
             socket.emit('joinGame', code);
             
-            socket.once('gameJoined', (data) => {
+            socket.on('gameJoined', (data) => {
                 myPlayerNumber = data.playerNumber;
                 gameSettings = {
                     playerCount: data.gameState.playerCount,
