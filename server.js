@@ -133,8 +133,10 @@ io.on('connection', (socket) => {
         
         // Jos kaikki pelaajat paikalla, aloita peli
         if (Object.keys(game.players).length === game.playerCount) {
+            console.log(`✅ KAIKKI PELAAJAT PAIKALLA (${Object.keys(game.players).length}/${game.playerCount}) - Lähetetään allPlayersJoined`);
             setTimeout(() => {
                 io.to(roomCode).emit('allPlayersJoined');
+                console.log(`📡 allPlayersJoined lähetetty huoneeseen ${roomCode}`);
             }, 1000);
         }
     });
