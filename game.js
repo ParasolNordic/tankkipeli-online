@@ -542,31 +542,103 @@ function createControls() {
     const controls = document.getElementById('controls');
     controls.innerHTML = '';
     
+    // Väri pelaajan numeron mukaan
     const colors = ['#00FF00', '#FF5722', '#2196F3'];
-    const playerClass = ['player1-controls', 'player2-controls', 'player3-controls'];
+    const playerColor = colors[myPlayerNumber - 1];
     
-    for (let i = 0; i < gameSettings.playerCount; i++) {
-        const group = document.createElement('div');
-        group.className = `control-group ${playerClass[i]}`;
+    // Luo YKSI ohjain tälle pelaajalle
+    controls.innerHTML = `
+        <style>
+            #controls {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 20px;
+                gap: 40px;
+            }
+            
+            .shoot-container {
+                flex: 1;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }
+            
+            .big-shoot-btn {
+                width: 120px;
+                height: 120px;
+                border: 4px solid ${playerColor};
+                border-radius: 50%;
+                background: rgba(${hexToRgb(playerColor)}, 0.3);
+                color: ${playerColor};
+                font-size: 48px;
+                font-weight: bold;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                touch-action: none;
+                transition: transform 0.1s, background 0.1s;
+            }
+            
+            .big-shoot-btn:active {
+                transform: scale(0.9);
+                background: rgba(${hexToRgb(playerColor)}, 0.5);
+            }
+            
+            .dpad-container {
+                flex: 1;
+                display: grid;
+                grid-template-columns: repeat(3, 80px);
+                grid-template-rows: repeat(3, 80px);
+                gap: 8px;
+                justify-content: center;
+            }
+            
+            .control-btn {
+                width: 80px;
+                height: 80px;
+                border: 3px solid ${playerColor};
+                border-radius: 12px;
+                background: rgba(${hexToRgb(playerColor)}, 0.2);
+                color: ${playerColor};
+                font-size: 32px;
+                font-weight: bold;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                touch-action: none;
+                transition: background 0.1s;
+            }
+            
+            .control-btn:active {
+                background: rgba(${hexToRgb(playerColor)}, 0.5);
+            }
+            
+            .control-btn.empty {
+                visibility: hidden;
+            }
+        </style>
         
-        group.innerHTML = `
-            <div class="dpad-container">
-                <div class="control-btn empty"></div>
-                <div class="control-btn" data-player="${i+1}" data-key="up">↑</div>
-                <div class="control-btn empty"></div>
-                <div class="control-btn" data-player="${i+1}" data-key="left">←</div>
-                <button class="shoot-btn" data-player="${i+1}">💥</button>
-                <div class="control-btn" data-player="${i+1}" data-key="right">→</div>
-                <div class="control-btn empty"></div>
-                <div class="control-btn" data-player="${i+1}" data-key="down">↓</div>
-                <div class="control-btn empty"></div>
-            </div>
-        `;
+        <div class="shoot-container">
+            <button class="big-shoot-btn" id="shootBtn">🔥</button>
+        </div>
         
-        controls.appendChild(group);
-    }
+        <div class="dpad-container">
+            <div class="control-btn empty"></div>
+            <div class="control-btn" data-key="up">↑</div>
+            <div class="control-btn empty"></div>
+            <div class="control-btn" data-key="left">←</div>
+            <div class="control-btn empty"></div>
+            <div class="control-btn" data-key="right">→</div>
+            <div class="control-btn empty"></div>
+            <div class="control-btn" data-key="down">↓</div>
+            <div class="control-btn empty"></div>
+        </div>
+    `;
     
-    // Lisää tapahtumat ohjaimillemme
+    // Lisää tapahtumat
     controls.querySelectorAll('.control-btn:not(.empty)').forEach(btn => {
         btn.addEventListener('touchstart', handleControlPress);
         btn.addEventListener('touchend', handleControlRelease);
@@ -574,39 +646,37 @@ function createControls() {
         btn.addEventListener('mouseup', handleControlRelease);
     });
     
-    controls.querySelectorAll('.shoot-btn').forEach(btn => {
-        btn.addEventListener('click', handleShoot);
+    const shootBtn = document.getElementById('shootBtn');
+    shootBtn.addEventListener('click', handleShoot);
+    shootBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        handleShoot(e);
     });
     
     controls.style.display = 'flex';
 }
 
+// Apufunktio: Muuta hex RGB:ksi
+function hexToRgb(hex) {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? 
+        `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : 
+        '255, 255, 255';
+}
+
 function handleControlPress(e) {
     e.preventDefault();
-    const player = parseInt(e.target.dataset.player);
     const key = e.target.dataset.key;
-    
-    if (player === myPlayerNumber) {
+    if (key) {
         keys[key] = true;
     }
 }
 
 function handleControlRelease(e) {
     e.preventDefault();
-    const player = parseInt(e.target.dataset.player);
     const key = e.target.dataset.key;
-    
-    if (player === myPlayerNumber) {
+    if (key) {
         keys[key] = false;
-    }
-}
-
-function handleShoot(e) {
-    e.preventDefault();
-    const player = parseInt(e.target.dataset.player);
-    
-    if (player === myPlayerNumber && myTank) {
-        myTank.shoot();
     }
 }
 
@@ -645,59 +715,68 @@ document.addEventListener('keyup', (e) => {
 // SOCKET TAPAHTUMAT
 // ═══════════════════════════════════════════════════════════
 
-// Toinen pelaaja liikkuu
-socket && socket.on('playerUpdate', (data) => {
-    const tank = gameState.tanks.find(t => t.playerNumber === data.playerNumber);
-    if (tank && tank.playerNumber !== myPlayerNumber) {
-        tank.x = data.data.x;
-        tank.y = data.data.y;
-        tank.angle = data.data.angle;
-    }
-});
-
-// Ammus ammuttu
-socket && socket.on('bulletFired', (data) => {
-    const bullet = new Bullet(data);
-    gameState.bullets.push(bullet);
-});
-
-// Ammus tuhottu
-socket && socket.on('bulletDestroyed', (bulletId) => {
-    gameState.bullets = gameState.bullets.filter(b => b.id !== bulletId);
-});
-
-// Pelaaja osui
-socket && socket.on('playerHit', (data) => {
-    const tank = gameState.tanks.find(t => t.playerNumber === data.victimId);
-    if (tank) {
-        gameState.explosions.push(new Explosion(tank.x, tank.y));
-        tank.hit();
-        checkGameOver();
-    }
-});
-
-// Kierros päättyi
-socket && socket.on('roundEnd', (data) => {
-    updateScores(data.scores);
-});
-
-// Uusi kierros
-socket && socket.on('newRound', (data) => {
-    if (data.scores) {
-        updateScores(data.scores);
-    }
-});
-
-// Seinät vastaanotettu
-socket && socket.on('wallsGenerated', (walls) => {
-    gameState.walls = walls.map(w => new Wall(w.x, w.y, w.width, w.height));
-});
-
-// Pelaaja poistui
-socket && socket.on('playerLeft', (data) => {
-    document.getElementById('message').textContent = `Pelaaja ${data.playerNumber} poistui pelistä`;
+// Rekisteröi pelin socket-eventit (kutsutaan kun peli alkaa)
+function setupGameSocketEvents() {
+    console.log('🎮 Rekisteröidään pelin socket-eventit...');
     
-    // Voit lisätä logiikan pelaajan poistamiseen
-});
+    // Toinen pelaaja liikkuu
+    socket.on('playerUpdate', (data) => {
+        console.log('📥 playerUpdate:', data);
+        const tank = gameState.tanks.find(t => t.playerNumber === data.playerNumber);
+        if (tank && tank.playerNumber !== myPlayerNumber) {
+            tank.x = data.data.x;
+            tank.y = data.data.y;
+            tank.angle = data.data.angle;
+        }
+    });
+
+    // Ammus ammuttu
+    socket.on('bulletFired', (data) => {
+        console.log('💥 bulletFired:', data);
+        const bullet = new Bullet(data);
+        gameState.bullets.push(bullet);
+    });
+
+    // Ammus tuhottu
+    socket.on('bulletDestroyed', (bulletId) => {
+        gameState.bullets = gameState.bullets.filter(b => b.id !== bulletId);
+    });
+
+    // Pelaaja osui
+    socket.on('playerHit', (data) => {
+        console.log('💀 playerHit:', data);
+        const tank = gameState.tanks.find(t => t.playerNumber === data.victimId);
+        if (tank) {
+            gameState.explosions.push(new Explosion(tank.x, tank.y));
+            tank.hit();
+            checkGameOver();
+        }
+    });
+
+    // Kierros päättyi
+    socket.on('roundEnd', (data) => {
+        updateScores(data.scores);
+    });
+
+    // Uusi kierros
+    socket.on('newRound', (data) => {
+        if (data.scores) {
+            updateScores(data.scores);
+        }
+    });
+
+    // Seinät vastaanotettu
+    socket.on('wallsGenerated', (walls) => {
+        console.log('🧱 Seinät vastaanotettu:', walls.length, 'seinää');
+        gameState.walls = walls.map(w => new Wall(w.x, w.y, w.width, w.height));
+    });
+
+    // Pelaaja poistui
+    socket.on('playerLeft', (data) => {
+        document.getElementById('message').textContent = `Pelaaja ${data.playerNumber} poistui pelistä`;
+    });
+    
+    console.log('✅ Pelin socket-eventit rekisteröity!');
+}
 
 console.log('🎮 Tankkipeli logiikka ladattu!');
