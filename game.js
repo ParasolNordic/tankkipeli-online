@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 // TANKKIPELI ONLINE - PELILOGIIKKA
 // ═══════════════════════════════════════════════════════════
- 
+
 // Pelitila
 let gameState = {
     tanks: [],
@@ -282,6 +282,21 @@ class Wall {
         this.height = height;
         // Satunnainen talotyyppi
         this.type = Math.random() > 0.5 ? 'brick' : 'concrete';
+        
+        // Luo ikkunat kerran (ei vilkkumista!)
+        this.windows = [];
+        const windowsX = Math.floor(this.width / 20);
+        const windowsY = Math.floor(this.height / 20);
+        
+        for (let wy = 0; wy < windowsY; wy++) {
+            for (let wx = 0; wx < windowsX; wx++) {
+                this.windows.push({
+                    x: wx,
+                    y: wy,
+                    lit: Math.random() > 0.3 // Onko valaistuna?
+                });
+            }
+        }
     }
     
     draw() {
@@ -312,24 +327,28 @@ class Wall {
                 }
             }
             
-            // Ikkunat (keltaiset)
+            // Ikkunat (tallennetut, ei vilkkumista)
             const windowSize = 8;
             const windowsX = Math.floor(this.width / 25);
             const windowsY = Math.floor(this.height / 25);
             
+            let windowIndex = 0;
             for (let wy = 0; wy < windowsY; wy++) {
                 for (let wx = 0; wx < windowsX; wx++) {
                     const winX = this.x + (wx + 1) * (this.width / (windowsX + 1)) - windowSize / 2;
                     const winY = this.y + (wy + 1) * (this.height / (windowsY + 1)) - windowSize / 2;
                     
-                    // Ikkuna
-                    ctx.fillStyle = Math.random() > 0.3 ? '#FFD700' : '#444'; // Keltainen tai tumma
+                    // Ikkuna (käytä tallennettua tilaa)
+                    const window = this.windows[windowIndex] || { lit: false };
+                    ctx.fillStyle = window.lit ? '#FFD700' : '#444';
                     ctx.fillRect(winX, winY, windowSize, windowSize);
                     
                     // Ikkunan reuna
                     ctx.strokeStyle = '#333';
                     ctx.lineWidth = 1;
                     ctx.strokeRect(winX, winY, windowSize, windowSize);
+                    
+                    windowIndex++;
                 }
             }
             
@@ -357,24 +376,28 @@ class Wall {
             ctx.lineWidth = 3;
             ctx.strokeRect(this.x, this.y, this.width, this.height);
             
-            // Ikkunat (sinertävät)
+            // Ikkunat (tallennetut, ei vilkkumista)
             const windowSize = 8;
             const windowsX = Math.floor(this.width / 20);
             const windowsY = Math.floor(this.height / 20);
             
+            let windowIndex = 0;
             for (let wy = 0; wy < windowsY; wy++) {
                 for (let wx = 0; wx < windowsX; wx++) {
                     const winX = this.x + (wx + 1) * (this.width / (windowsX + 1)) - windowSize / 2;
                     const winY = this.y + (wy + 1) * (this.height / (windowsY + 1)) - windowSize / 2;
                     
-                    // Ikkuna
-                    ctx.fillStyle = Math.random() > 0.4 ? '#87CEEB' : '#333'; // Vaaleansininen tai tumma
+                    // Ikkuna (käytä tallennettua tilaa)
+                    const window = this.windows[windowIndex] || { lit: false };
+                    ctx.fillStyle = window.lit ? '#87CEEB' : '#333';
                     ctx.fillRect(winX, winY, windowSize, windowSize);
                     
                     // Ikkunan reuna
                     ctx.strokeStyle = '#222';
                     ctx.lineWidth = 1;
                     ctx.strokeRect(winX, winY, windowSize, windowSize);
+                    
+                    windowIndex++;
                 }
             }
         }
@@ -424,12 +447,7 @@ class Explosion {
 
 // Alusta peli
 function initGame() {
-    // Generoi seinät ENSIN (vain host)
-    if (isHost) {
-        generateWalls();
-    }
-    
-    // Luo tankit TURVALLISIIN paikkoihin (1000x550 pelialue)
+    // Luo tankit ENSIN (jotta generateWalls voi käyttää niitä turvavyöhykkeisiin)
     const colors = ['#00FF00', '#FF5722', '#2196F3'];
     const positions = [
         { x: 80, y: canvas.height / 2 },  // Vasen reuna
@@ -446,9 +464,18 @@ function initGame() {
             i + 1
         );
         gameState.tanks.push(tank);
-        
-        if (i + 1 === myPlayerNumber) {
-            myTank = tank;
+    }
+    
+    // Generoi seinät TANKKIEN JÄLKEEN (välttää tankkien spawn-pisteitä)
+    if (isHost) {
+        generateWalls();
+    }
+    
+    // Assignoidaan oma tankki LOPUKSI
+    for (let i = 0; i < gameState.tanks.length; i++) {
+        if (gameState.tanks[i].playerNumber === myPlayerNumber) {
+            myTank = gameState.tanks[i];
+            break;
         }
     }
     
