@@ -9,7 +9,8 @@ const server = http.createServer(app);
 
 // CORS asetukset
 app.use(cors());
-app.use(express.static('public'));
+// Servaa kaikki staattiset tiedostot root-hakemistosta
+app.use(express.static(__dirname));
 
 // Socket.IO asetukset
 const io = socketIO(server, {
