@@ -602,7 +602,7 @@ function checkGameOver() {
         
         // Odota ja aloita uusi kierros (vain kerran!)
         setTimeout(() => {
-            const wantNewRound = confirm('Uusi kierros?');
+            const wantNewRound = confirm('Uusi kierros, vassakuu?');
             if (wantNewRound) {
                 resetRound();
             }
