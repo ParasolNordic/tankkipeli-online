@@ -726,17 +726,20 @@
         }
         
         function resizeCanvas() {
+            // KIINTEÄ pelialue - sama kaikille
+            const GAME_WIDTH = 1200;
+            const GAME_HEIGHT = 700;
+            
+            canvas.width = GAME_WIDTH;
+            canvas.height = GAME_HEIGHT;
+            
+            // Keskitä canvas
             const container = document.getElementById('gameContainer');
-            const info = document.getElementById('info');
-            const message = document.getElementById('message');
-            const controls = document.getElementById('controls');
-            
-            const availableHeight = window.innerHeight - 
-                info.offsetHeight - message.offsetHeight - 
-                (controls.style.display === 'none' ? 0 : controls.offsetHeight);
-            
-            canvas.width = window.innerWidth;
-            canvas.height = availableHeight;
+            container.style.display = 'flex';
+            container.style.justifyContent = 'center';
+            container.style.alignItems = 'flex-start';
+            container.style.paddingTop = '10px';
+            container.style.paddingBottom = '150px'; // Tilaa ohjaimille
         }
         
         console.log('🎮 Tankkipeli Online pääohjelma ladattu!');
