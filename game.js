@@ -120,23 +120,39 @@ class Tank {
         ctx.translate(this.x, this.y);
         ctx.rotate(this.angle);
         
-        // Runko
+        // Runko (suorakulmio)
         ctx.fillStyle = this.color;
-        ctx.fillRect(-this.width / 2, -this.width / 2, this.width, this.width);
+        ctx.fillRect(-this.width / 2, -this.width / 2.5, this.width, this.width * 0.8);
         
-        // Torni
-        ctx.fillRect(-5, -10, 10, 20);
+        // Runko reuna (musta)
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(-this.width / 2, -this.width / 2.5, this.width, this.width * 0.8);
         
-        // Putki
-        ctx.fillRect(0, -3, this.width / 2, 6);
+        // Torni (pienempi neliö keskellä)
+        ctx.fillStyle = this.color;
+        ctx.fillRect(-8, -8, 16, 16);
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(-8, -8, 16, 16);
+        
+        // Putki (tykin piippu)
+        ctx.fillStyle = this.color;
+        ctx.fillRect(0, -3, this.width / 2 + 5, 6);
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(0, -3, this.width / 2 + 5, 6);
         
         ctx.restore();
         
         // Pelaajan numero
         ctx.fillStyle = '#fff';
-        ctx.font = 'bold 16px Courier New';
+        ctx.font = 'bold 14px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText('P' + this.playerNumber, this.x, this.y - this.width / 2 - 10);
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 3;
+        ctx.strokeText('P' + this.playerNumber, this.x, this.y - this.width / 2 - 8);
+        ctx.fillText('P' + this.playerNumber, this.x, this.y - this.width / 2 - 8);
     }
 }
 
@@ -550,28 +566,34 @@ function createControls() {
     controls.innerHTML = `
         <style>
             #controls {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                padding: 20px;
-                gap: 40px;
+                padding: 10px 20px;
+                background: rgba(0, 0, 0, 0.9);
+                gap: 20px;
+                height: 140px;
+                z-index: 1000;
             }
             
             .shoot-container {
-                flex: 1;
                 display: flex;
                 justify-content: center;
                 align-items: center;
             }
             
             .big-shoot-btn {
-                width: 120px;
-                height: 120px;
-                border: 4px solid ${playerColor};
+                width: 100px;
+                height: 100px;
+                border: 3px solid ${playerColor};
                 border-radius: 50%;
                 background: rgba(${hexToRgb(playerColor)}, 0.3);
                 color: ${playerColor};
-                font-size: 48px;
+                font-size: 36px;
                 font-weight: bold;
                 display: flex;
                 align-items: center;
@@ -587,22 +609,20 @@ function createControls() {
             }
             
             .dpad-container {
-                flex: 1;
                 display: grid;
-                grid-template-columns: repeat(3, 80px);
-                grid-template-rows: repeat(3, 80px);
-                gap: 8px;
-                justify-content: center;
+                grid-template-columns: repeat(3, 55px);
+                grid-template-rows: repeat(3, 55px);
+                gap: 5px;
             }
             
             .control-btn {
-                width: 80px;
-                height: 80px;
-                border: 3px solid ${playerColor};
-                border-radius: 12px;
+                width: 55px;
+                height: 55px;
+                border: 2px solid ${playerColor};
+                border-radius: 8px;
                 background: rgba(${hexToRgb(playerColor)}, 0.2);
                 color: ${playerColor};
-                font-size: 32px;
+                font-size: 24px;
                 font-weight: bold;
                 display: flex;
                 align-items: center;
@@ -679,6 +699,7 @@ function handleControlRelease(e) {
         keys[key] = false;
     }
 }
+
 function handleShoot(e) {
     e.preventDefault();
     if (myTank && myTank.alive) {
@@ -686,6 +707,7 @@ function handleShoot(e) {
         myTank.shoot();
     }
 }
+
 // Näppäimistökontrollit
 document.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
