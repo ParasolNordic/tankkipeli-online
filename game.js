@@ -280,28 +280,107 @@ class Wall {
         this.y = y;
         this.width = width;
         this.height = height;
+        // Satunnainen talotyyppi
+        this.type = Math.random() > 0.5 ? 'brick' : 'concrete';
     }
     
     draw() {
-        ctx.fillStyle = '#555';
-        ctx.fillRect(this.x, this.y, this.width, this.height);
-        
-        ctx.strokeStyle = '#777';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(this.x, this.y, this.width, this.height);
-        
-        // Tiiliviivat
-        ctx.strokeStyle = '#444';
-        ctx.lineWidth = 1;
-        const brickHeight = this.height / 5;
-        for (let i = 1; i < 5; i++) {
-            ctx.beginPath();
-            ctx.moveTo(this.x, this.y + i * brickHeight);
-            ctx.lineTo(this.x + this.width, this.y + i * brickHeight);
-            ctx.stroke();
+        if (this.type === 'brick') {
+            // TIILITALO (oranssi/ruskea)
+            ctx.fillStyle = '#A0522D'; // Tiili
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+            
+            // Reunat
+            ctx.strokeStyle = '#654321';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(this.x, this.y, this.width, this.height);
+            
+            // Tiilirivit
+            const brickHeight = 12;
+            const brickWidth = 20;
+            ctx.strokeStyle = '#8B4513';
+            ctx.lineWidth = 2;
+            
+            for (let row = 0; row * brickHeight < this.height; row++) {
+                const offsetX = (row % 2) * (brickWidth / 2);
+                for (let col = 0; col * brickWidth < this.width + brickWidth; col++) {
+                    const bx = this.x + col * brickWidth - offsetX;
+                    const by = this.y + row * brickHeight;
+                    if (bx >= this.x && bx < this.x + this.width) {
+                        ctx.strokeRect(bx, by, brickWidth, brickHeight);
+                    }
+                }
+            }
+            
+            // Ikkunat (keltaiset)
+            const windowSize = 8;
+            const windowsX = Math.floor(this.width / 25);
+            const windowsY = Math.floor(this.height / 25);
+            
+            for (let wy = 0; wy < windowsY; wy++) {
+                for (let wx = 0; wx < windowsX; wx++) {
+                    const winX = this.x + (wx + 1) * (this.width / (windowsX + 1)) - windowSize / 2;
+                    const winY = this.y + (wy + 1) * (this.height / (windowsY + 1)) - windowSize / 2;
+                    
+                    // Ikkuna
+                    ctx.fillStyle = Math.random() > 0.3 ? '#FFD700' : '#444'; // Keltainen tai tumma
+                    ctx.fillRect(winX, winY, windowSize, windowSize);
+                    
+                    // Ikkunan reuna
+                    ctx.strokeStyle = '#333';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(winX, winY, windowSize, windowSize);
+                }
+            }
+            
+            // Ovi (jos riittävän leveä)
+            if (this.width > 40 && this.height > 40) {
+                const doorWidth = 15;
+                const doorHeight = 25;
+                const doorX = this.x + this.width / 2 - doorWidth / 2;
+                const doorY = this.y + this.height - doorHeight;
+                
+                ctx.fillStyle = '#4A2C2A'; // Tumma ruskea ovi
+                ctx.fillRect(doorX, doorY, doorWidth, doorHeight);
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(doorX, doorY, doorWidth, doorHeight);
+            }
+            
+        } else {
+            // BETONITALO (harmaa kerrostalo)
+            ctx.fillStyle = '#6B6B6B'; // Betoni
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+            
+            // Reunat
+            ctx.strokeStyle = '#4A4A4A';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(this.x, this.y, this.width, this.height);
+            
+            // Ikkunat (sinertävät)
+            const windowSize = 8;
+            const windowsX = Math.floor(this.width / 20);
+            const windowsY = Math.floor(this.height / 20);
+            
+            for (let wy = 0; wy < windowsY; wy++) {
+                for (let wx = 0; wx < windowsX; wx++) {
+                    const winX = this.x + (wx + 1) * (this.width / (windowsX + 1)) - windowSize / 2;
+                    const winY = this.y + (wy + 1) * (this.height / (windowsY + 1)) - windowSize / 2;
+                    
+                    // Ikkuna
+                    ctx.fillStyle = Math.random() > 0.4 ? '#87CEEB' : '#333'; // Vaaleansininen tai tumma
+                    ctx.fillRect(winX, winY, windowSize, windowSize);
+                    
+                    // Ikkunan reuna
+                    ctx.strokeStyle = '#222';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(winX, winY, windowSize, windowSize);
+                }
+            }
         }
     }
 }
+
 
 // Explosion-luokka
 class Explosion {
@@ -350,12 +429,12 @@ function initGame() {
         generateWalls();
     }
     
-    // Luo tankit TURVALLISIIN paikkoihin (reunoilla, kaukana keskustasta)
+    // Luo tankit TURVALLISIIN paikkoihin (1000x550 pelialue)
     const colors = ['#00FF00', '#FF5722', '#2196F3'];
     const positions = [
-        { x: 100, y: canvas.height / 2 },  // Vasen reuna
-        { x: canvas.width - 100, y: canvas.height / 2 },  // Oikea reuna
-        { x: canvas.width / 2, y: 100 }  // Yläreuna
+        { x: 80, y: canvas.height / 2 },  // Vasen reuna
+        { x: canvas.width - 80, y: canvas.height / 2 },  // Oikea reuna
+        { x: canvas.width / 2, y: 80 }  // Yläreuna
     ];
     
     gameState.tanks = [];
@@ -513,11 +592,11 @@ function resetRound() {
     
     gameState.tanks.forEach(tank => tank.reset());
     
-    // Palauta alkuasennot (TURVALLISIIN paikkoihin)
+    // Palauta alkuasennot (1000x550 pelialue)
     const positions = [
-        { x: 100, y: canvas.height / 2 },
-        { x: canvas.width - 100, y: canvas.height / 2 },
-        { x: canvas.width / 2, y: 100 }
+        { x: 80, y: canvas.height / 2 },
+        { x: canvas.width - 80, y: canvas.height / 2 },
+        { x: canvas.width / 2, y: 80 }
     ];
     
     gameState.tanks.forEach((tank, i) => {
