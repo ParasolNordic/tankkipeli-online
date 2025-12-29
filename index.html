@@ -107,11 +107,21 @@
             display: flex;
         }
         
+        .menu-logo {
+            max-width: 400px;
+            width: 80%;
+            height: auto;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        
         .menu-title {
-            font-size: 48px;
+            font-size: 36px;
             margin-bottom: 30px;
             color: #FFD700;
             text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+            font-weight: bold;
         }
         
         .menu-btn {
@@ -347,7 +357,8 @@
 
     <!-- PÄÄVALIKKO -->
     <div id="mainMenu" class="menu-screen show">
-        <div class="menu-title">🎮 TANKKIPELI ONLINE</div>
+        <img src="https://parasolnordic.github.io/vibes/tankkk_online.png" alt="Tankkipeli" class="menu-logo">
+        <div class="menu-title">TANKKIPELI ONLINE</div>
         <div id="status">Yhdistetään palvelimeen...</div>
         <div id="mainButtons" style="display:none;">
             <button class="menu-btn" style="background: #4CAF50;" onclick="showCreateMenu()">
